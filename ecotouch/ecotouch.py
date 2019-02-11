@@ -25,8 +25,9 @@ class Ecotouch:
         args={'n': 1, 't1': tag.tag}
         r = requests.get('http://%s/cgi/readTags' % self.hostname, params=args, cookies=self.auth_cookies)
         val_str = re.search(r'(?:^\d+\t)(\d+)', r.text, re.MULTILINE).group(1)
-        val = int(val_str) * tag.factor
-        print("%s: %s [%s]" % (tag.identifier, tag.pattern % val, tag.unit))
+        if tag.no_decimal_places > 0:
+            val_str = val_str[:-tag.no_decimal_places] + '.' + val_str[-tag.no_decimal_places:]
+        val = tag.val_type(val_str)
         return val
 
 
