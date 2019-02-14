@@ -19,6 +19,7 @@ class ecotouch_tag(Enum):
     PRESSURE_EVAPORATION = ('pressure_evaporation', 'A8', 'Verdampfungsdruck', 'hPa', float, 1)
     TEMPERATURE_RETURN_SET = ('temperature_return_set', 'A9', 'Rücklauftemperatur Soll', '°C', float, 1)
     TEMPERATURE_RETURN = ('temperature_return_set', 'A10', 'Rücklauftemperatur', '°C', float, 1)
+    TEMPERATURE_ROOM = ('temperature_room', 'A17', 'Zimmertemperatur', '°C', float, 1)
 
 
     ADAPT_HEATING = ('adapt_heating', 'I263', 'Temperaturanpassung', None, int)
