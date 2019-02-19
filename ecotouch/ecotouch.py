@@ -31,4 +31,14 @@ class Ecotouch:
         val = tag.val_type(val_str)
         return val
 
+    def write_tag(self, tag, value):
+        args={'n': 1, 't1': tag.tag, 'v1' : value}
+        r = requests.get('http://%s/cgi/writeTags' % self.hostname, params=args, cookies=self.auth_cookies)
+        print(r.text)
+        val_str = re.search(r'(?:^\d+\t)(\-?\d+)', r.text, re.MULTILINE).group(1)
+        if tag.no_decimal_places > 0:
+            val_str = val_str[:-tag.no_decimal_places] + '.' + val_str[-tag.no_decimal_places:]
+        val = tag.val_type(val_str)
+        return val
+
 
