@@ -1,5 +1,8 @@
 import requests
+from itertools import islice
 import re
+
+MAX_NO_TAGS = 20
 
 class StatusException(Exception):
     pass
@@ -26,13 +29,16 @@ class Ecotouch:
             raise StatusException("Fehler beim Login: Status:%s" % self.get_status_response(r)) 
         self.auth_cookies = r.cookies
 
-    def read_tags(self, tags):
+    def read_tags(self, tags, results={}):
+
+        if len(tags) > MAX_NO_TAGS:
+            results = self.read_tags(tags[MAX_NO_TAGS:], results)
+        tags = tags[:MAX_NO_TAGS]
         args = {}
         args['n'] = len(tags)
         for i in range(len(tags)):
             args['t%d' % (i+1)] = tags[i].tag
         r = requests.get('http://%s/cgi/readTags' % self.hostname, params=args, cookies=self.auth_cookies)
-        results = {}
         for tag in tags:
             match = re.search(r'#%s\t(?P<status>[A-Z_]+)\n\d+\t(?P<value>\-?\d+)' % tag.tag, r.text, re.MULTILINE)
             val_str = match.group('value')
@@ -61,5 +67,11 @@ class Ecotouch:
             val_str = val_str[:-tag.no_decimal_places] + '.' + val_str[-tag.no_decimal_places:]
         val = tag.val_type(val_str)
         return val
+
+    def slice_list(self, tags):
+        it = iter(tags)
+        for i in range(0, len(tags), MAX_NO_TAGS):
+            yield [k for k in islice(it, MAX_NO_TAGS)]
+
 
 

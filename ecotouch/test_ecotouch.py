@@ -5,6 +5,10 @@ import pytest
 
 HOSTNAME = 'hostname'
 
+@pytest.fixture
+def wp_instance():
+    return Ecotouch(HOSTNAME)
+
 
 # Helper functions
 def prepare_response(action, body):
@@ -15,34 +19,37 @@ def prepare_response(action, body):
 
 
 @responses.activate
-def test_login_invalid_response():
+def test_login_invalid_response(wp_instance):
     prepare_response('login', 'invalid')
-    wp = Ecotouch(HOSTNAME)
 
     with pytest.raises(InvalidResponseException) as e_info:
-        wp.login()
+        wp_instance.login()
 
 @responses.activate
-def test_login_relogin():
+def test_login_relogin(wp_instance):
     prepare_response('login', '#E_RE-LOGIN_ATTEMPT')
-    wp = Ecotouch(HOSTNAME)
     with pytest.raises(StatusException) as e_info:
-        wp.login()
+        wp_instance.login()
 
 @responses.activate
-def test_login_success():
+def test_login_success(wp_instance):
     prepare_response('login', '1\n#S_OK\nIDALToken=7030fabe1f6beb2ca91a6cfd8806d6ad')
-    wp = Ecotouch(HOSTNAME)
-    wp.login()
+    wp_instance.login()
     
 @responses.activate
-def test_read_tag():
+def test_read_tag(wp_instance):
     prepare_response('readTags', '#A1\tS_OK\n192\t86\n')
-    wp = Ecotouch(HOSTNAME)
-    assert wp.read_tag(ecotouch_tag.TEMPERATURE_OUTSIDE) == 8.6
+    assert wp_instance.read_tag(ecotouch_tag.TEMPERATURE_OUTSIDE) == 8.6
 
 @responses.activate
-def test_read_multiple_tags():
+def test_write(wp_instance):
+    prepare_response('writeTags', '#I263\tS_OK\n192\t5\n')
+    wp_instance.write_tag(ecotouch_tag.ADAPT_HEATING, 6)
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_read_multiple_tags(wp_instance):
     RESPONSE = "".join([
     '#A1\tS_OK\n192\t84\n',
     '#A2\tS_OK\n192\t87\n',
@@ -50,8 +57,7 @@ def test_read_multiple_tags():
     '#A4\tS_OK\n192\t95\n',
     '#A5\tS_OK\n192\t57\n'])
     prepare_response('readTags', RESPONSE)
-    wp = Ecotouch(HOSTNAME)
-    result = wp.read_tags([
+    result = wp_instance.read_tags([
         ecotouch_tag.TEMPERATURE_OUTSIDE,
         ecotouch_tag.TEMPERATURE_OUTSIDE_1H,
         ecotouch_tag.TEMPERATURE_OUTSIDE_24H,

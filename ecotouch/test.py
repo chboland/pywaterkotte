@@ -7,8 +7,10 @@ wp = ecotouch.Ecotouch('192.168.2.11')
 
 wp.login()
 
+tags = [t for t in ecotouch_tag]
+
 while True:
-    for tag in ecotouch_tag:
-        print('%s: %s' % (tag.identifier, str(wp.read_tag(tag))))
+    result = wp.read_tags(tags)
+    #    print('%s: %s' % (tag.identifier, str(wp.read_tags([tag]))))
     print('\n\n\n')
     sleep(3)
