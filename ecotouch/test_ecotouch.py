@@ -48,6 +48,12 @@ def test_write(wp_instance):
     assert len(responses.calls) == 1
 
 @responses.activate
+def test_write_date(wp_instance):
+    prepare_response('writeTags', '#I263\tS_OK\n192\t5\n')
+    wp_instance.write_value(EcotouchTag.HOLIDAY_START_TIME, datetime(2019, 3,2,11,00))
+    assert len(responses.calls) == 5
+
+@responses.activate
 def test_read_date(wp_instance):
     RESPONSE = "".join([
     '#I1250\tS_OK\n192\t18\n',

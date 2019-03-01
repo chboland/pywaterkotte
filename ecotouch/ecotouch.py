@@ -57,8 +57,14 @@ def _parse_time(self, e_vals):
     vals[0] = vals[0] + 2000
     return datetime(*vals)
 
+def _write_time(tag, value, et_values):
+    assert isinstance(value, datetime)
+    vals = [str(val) for val in [value.year % 100, value.month, value.day, value.hour, value.minute, value.second]]
+    for i in range(len(tag._tags)):
+        et_values[tag._tags[i]] = vals[i]
+
 class EcotouchTag(Enum):
-    def __init__(self, ecotouch_tags, unit=None, read_function=None, write_function=None, writeable=None):
+    def __init__(self, ecotouch_tags, unit=None, writeable = False, read_function=None, write_function=None):
         self._tags = ecotouch_tags
         self.unit = unit
         self._writeable = writeable
@@ -73,14 +79,14 @@ class EcotouchTag(Enum):
             self._fn_write = lambda v, ev : write_function(self, v, ev)
 
     TEMPERATURE_OUTSIDE =     (['A1'], '°C')
-    HOLIDAY_ENABLED =         (['D420'], None, None, None, True)
-    HOLIDAY_START_TIME =      (['I1254', 'I1253', 'I1252', 'I1250', 'I1251'], None, _parse_time)
-    HOLIDAY_END_TIME =        (['I1259', 'I1258', 'I1257', 'I1255', 'I1256'], None, _parse_time)
+    HOLIDAY_ENABLED =         (['D420'], None, True)
+    HOLIDAY_START_TIME =      (['I1254', 'I1253', 'I1252', 'I1250', 'I1251'], None, True, _parse_time, _write_time)
+    HOLIDAY_END_TIME =        (['I1259', 'I1258', 'I1257', 'I1255', 'I1256'], None, True, _parse_time, _write_time)
     TEMPERATURE_OUTSIDE_1H =  (['A2'], '°C')
     TEMPERATURE_OUTSIDE_24H = (['A3'], '°C')
     TEMPERATURE_SOURCE_IN =   (['A4'], '°C')
     TEMPERATURE_SOURCE_OUT =  (['A5'], '°C')
-    ADAPT_HEATING =           (['I263'], None, None, None, True)
+    ADAPT_HEATING =           (['I263'], None, True)
 
 #
 # Class to control Waterkotte Ecotouch heatpumps.
