@@ -1,7 +1,7 @@
-from ecotouch.ecotouch import (Ecotouch, InvalidResponseException, StatusException)
-from ecotouch.ecotouch_tags import ecotouch_tag
+from ecotouch.ecotouch import (Ecotouch, EcotouchTag, InvalidResponseException, StatusException)
 import responses
 import pytest
+from datetime import datetime
 
 HOSTNAME = 'hostname'
 
@@ -39,13 +39,26 @@ def test_login_success(wp_instance):
 @responses.activate
 def test_read_tag(wp_instance):
     prepare_response('readTags', '#A1\tS_OK\n192\t86\n')
-    assert wp_instance.read_tag(ecotouch_tag.TEMPERATURE_OUTSIDE) == 8.6
+    assert wp_instance.read_value(EcotouchTag.TEMPERATURE_OUTSIDE) == 8.6
 
 @responses.activate
 def test_write(wp_instance):
     prepare_response('writeTags', '#I263\tS_OK\n192\t5\n')
-    wp_instance.write_tag(ecotouch_tag.ADAPT_HEATING, 6)
+    wp_instance.write_value(EcotouchTag.ADAPT_HEATING, 6)
     assert len(responses.calls) == 1
+
+@responses.activate
+def test_read_date(wp_instance):
+    RESPONSE = "".join([
+    '#I1250\tS_OK\n192\t18\n',
+    '#I1251\tS_OK\n192\t2\n',
+    '#I1252\tS_OK\n192\t1\n',
+    '#I1253\tS_OK\n192\t3\n',
+    '#I1254\tS_OK\n192\t19\n'])
+    prepare_response('readTags', RESPONSE)
+    result = wp_instance.read_value(EcotouchTag.HOLIDAY_START_TIME)
+    assert isinstance(result, datetime)
+    assert datetime(2019,3,1,18,2) == result
 
 
 @responses.activate
@@ -57,18 +70,18 @@ def test_read_multiple_tags(wp_instance):
     '#A4\tS_OK\n192\t95\n',
     '#A5\tS_OK\n192\t57\n'])
     prepare_response('readTags', RESPONSE)
-    result = wp_instance.read_tags([
-        ecotouch_tag.TEMPERATURE_OUTSIDE,
-        ecotouch_tag.TEMPERATURE_OUTSIDE_1H,
-        ecotouch_tag.TEMPERATURE_OUTSIDE_24H,
-        ecotouch_tag.TEMPERATURE_SOURCE_IN,
-        ecotouch_tag.TEMPERATURE_SOURCE_OUT])
+    result = wp_instance.read_values([
+        EcotouchTag.TEMPERATURE_OUTSIDE,
+        EcotouchTag.TEMPERATURE_OUTSIDE_1H,
+        EcotouchTag.TEMPERATURE_OUTSIDE_24H,
+        EcotouchTag.TEMPERATURE_SOURCE_IN,
+        EcotouchTag.TEMPERATURE_SOURCE_OUT])
 
     assert result is not None
     assert isinstance(result, dict)
-    assert result[ecotouch_tag.TEMPERATURE_OUTSIDE] == 8.4
-    assert result[ecotouch_tag.TEMPERATURE_OUTSIDE_1H] == 8.7
-    assert result[ecotouch_tag.TEMPERATURE_OUTSIDE_24H] == 9.2
-    assert result[ecotouch_tag.TEMPERATURE_SOURCE_IN] == 9.5
-    assert result[ecotouch_tag.TEMPERATURE_SOURCE_OUT] == 5.7
+    assert result[EcotouchTag.TEMPERATURE_OUTSIDE] == 8.4
+    assert result[EcotouchTag.TEMPERATURE_OUTSIDE_1H] == 8.7
+    assert result[EcotouchTag.TEMPERATURE_OUTSIDE_24H] == 9.2
+    assert result[EcotouchTag.TEMPERATURE_SOURCE_IN] == 9.5
+    assert result[EcotouchTag.TEMPERATURE_SOURCE_OUT] == 5.7
 
