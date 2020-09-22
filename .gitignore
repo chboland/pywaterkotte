@@ -1,5 +1,1 @@
-Pipfile.lock
-*.pyc
-*.egg-info/
-build/
-dist/
+.vscode/

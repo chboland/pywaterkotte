@@ -1,7 +1,7 @@
 import requests
 import re
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timedelta
 
 MAX_NO_TAGS = 20
 
@@ -55,7 +55,13 @@ def _write_value_default(self, value, et_values):
 def _parse_time(self, e_vals):
     vals = [int(e_vals[tag]) for tag in self._tags]
     vals[0] = vals[0] + 2000
-    return datetime(*vals)
+    next_day = False
+    if (vals[3] == 24):
+        vals[3] = 0
+        next_day = True
+
+    dt = datetime(*vals)
+    return dt + timedelta(days=1) if next_day else dt
 
 def _write_time(tag, value, et_values):
     assert isinstance(value, datetime)
