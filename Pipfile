@@ -5,10 +5,11 @@ verify_ssl = true
 
 [dev-packages]
 pytest = "*"
+responses = "*"
 pylint = "*"
 
 [packages]
-responses = "*"
+requests = "*"
 
 [requires]
 python_version = "3.8"
