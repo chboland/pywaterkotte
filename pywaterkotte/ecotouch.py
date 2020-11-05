@@ -15,7 +15,7 @@ class InvalidValueException(Exception):
     pass
 
 # default method that reads a value based on a single tag
-def _parse_value_default(self, vals):
+def _parse_value_default(self, vals, bitnum=None):
     assert len(self._tags) == 1
     ecotouch_tag = self._tags[0]
     assert ecotouch_tag[0] in ['A', 'I', 'D']
@@ -28,7 +28,11 @@ def _parse_value_default(self, vals):
     if ecotouch_tag[0] == 'A':
         return float(val) / 10.            
     if ecotouch_tag[0] == 'I':
-        return int(val)
+        if bitnum is None:
+            return int(val)
+        else:
+            return (int(val) & (1 << bitnum)) > 0
+
     if ecotouch_tag[0] == 'D':
         if val == "1":
             return True
@@ -70,13 +74,14 @@ def _write_time(tag, value, et_values):
         et_values[tag._tags[i]] = vals[i]
 
 class EcotouchTag(Enum):
-    def __init__(self, ecotouch_tags, unit=None, writeable = False, read_function=None, write_function=None):
+    def __init__(self, ecotouch_tags, unit : str =None, writeable : bool = False, read_function=None, write_function=None, bit : int =None):
         self._tags = ecotouch_tags
         self.unit = unit
         self._writeable = writeable
+        self.bitnum = bit
 
         if read_function is None:
-            self._fn_read = lambda t : _parse_value_default(self, t)
+            self._fn_read = lambda t : _parse_value_default(self, t, bit)
         else:
             self._fn_read = lambda t : read_function(self, t)
         if write_function is None:
@@ -84,16 +89,21 @@ class EcotouchTag(Enum):
         else:
             self._fn_write = lambda v, ev : write_function(self, v, ev)
 
-    TEMPERATURE_OUTSIDE =     (['A1'], '°C')
-    HOLIDAY_ENABLED =         (['D420'], None, True)
-    HOLIDAY_START_TIME =      (['I1254', 'I1253', 'I1252', 'I1250', 'I1251'], None, True, _parse_time, _write_time)
-    HOLIDAY_END_TIME =        (['I1259', 'I1258', 'I1257', 'I1255', 'I1256'], None, True, _parse_time, _write_time)
-    TEMPERATURE_OUTSIDE_1H =  (['A2'], '°C')
-    TEMPERATURE_OUTSIDE_24H = (['A3'], '°C')
-    TEMPERATURE_SOURCE_IN =   (['A4'], '°C')
-    TEMPERATURE_SOURCE_OUT =  (['A5'], '°C')
-    TEMPERATURE_WATER =       (['A19'], '°C')
-    ADAPT_HEATING =           (['I263'], None, True)
+    TEMPERATURE_OUTSIDE =           (['A1'], '°C')
+    HOLIDAY_ENABLED =               (['D420'], None, True)
+    HOLIDAY_START_TIME =            (['I1254', 'I1253', 'I1252', 'I1250', 'I1251'], None, True, _parse_time, _write_time)
+    HOLIDAY_END_TIME =              (['I1259', 'I1258', 'I1257', 'I1255', 'I1256'], None, True, _parse_time, _write_time)
+    TEMPERATURE_OUTSIDE_1H =        (['A2'], '°C')
+    TEMPERATURE_OUTSIDE_24H =       (['A3'], '°C')
+    TEMPERATURE_SOURCE_IN =         (['A4'], '°C')
+    TEMPERATURE_SOURCE_OUT =        (['A5'], '°C')
+    TEMPERATURE_WATER =             (['A19'], '°C')
+    TEMPERATURE_WATER_SETPOINT =    (['A37'], '°C', True)
+    ADAPT_HEATING =                 (['I263'], None, True)
+    STATE_SOURCEPUMP =              (['I51'], None, False, None, None, 0)
+    STATE_HEATINGPUMP =             (['I51'], None, False, None, None, 1)
+    STATE_COMPRESSOR =              (['I51'], None, False, None, None, 3)
+    STATE_EXTERNAL_HEATER =         (['I51'], None, False, None, None, 5)
 
 #
 # Class to control Waterkotte Ecotouch heatpumps.

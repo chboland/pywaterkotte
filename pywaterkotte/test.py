@@ -1,11 +1,11 @@
-import pywaterkotte
+from ecotouch import Ecotouch, EcotouchTag
 from time import sleep
 
-wp = pywaterkotte.Ecotouch('waterkotte.lan')
+wp = Ecotouch('waterkotte.lan')
 
 wp.login()
 
-tags = [t for t in pywaterkotte.EcotouchTag]
+tags = [t for t in EcotouchTag]
 
 while True:
     result = wp.read_values(tags)
