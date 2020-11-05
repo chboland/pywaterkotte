@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="pywaterkotte-chboland", # Replace with your own username
+    name="pywaterkotte", 
     version="0.0.1",
     author="Christian Boland",
     author_email="pywaterkotte@chbol.de",
