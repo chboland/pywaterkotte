@@ -1,3 +1,3 @@
-from pywaterkotte import Ecotouch, EcotouchTag, StatusException, InvalidResponseException, InvalidValueException
+from .ecotouch import Ecotouch, EcotouchTag, StatusException, InvalidResponseException, InvalidValueException
 
 name = "pywaterkotte"
