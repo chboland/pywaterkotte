@@ -1,11 +1,11 @@
-import ecotouch
+import pywaterkotte
 from time import sleep
 
-wp = ecotouch.Ecotouch('192.168.2.148')
+wp = pywaterkotte.Ecotouch('waterkotte.lan')
 
 wp.login()
 
-tags = [t for t in ecotouch.EcotouchTag]
+tags = [t for t in pywaterkotte.EcotouchTag]
 
 while True:
     result = wp.read_values(tags)

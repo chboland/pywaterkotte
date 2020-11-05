@@ -1,4 +1,4 @@
-from ecotouch.ecotouch import (Ecotouch, EcotouchTag, InvalidResponseException, StatusException)
+from pywaterkotte.ecotouch import (Ecotouch, EcotouchTag, InvalidResponseException, StatusException)
 import responses
 import pytest
 from datetime import datetime
