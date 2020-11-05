@@ -92,6 +92,7 @@ class EcotouchTag(Enum):
     TEMPERATURE_OUTSIDE_24H = (['A3'], '°C')
     TEMPERATURE_SOURCE_IN =   (['A4'], '°C')
     TEMPERATURE_SOURCE_OUT =  (['A5'], '°C')
+    TEMPERATURE_WATER =       (['A19'], '°C')
     ADAPT_HEATING =           (['I263'], None, True)
 
 #
