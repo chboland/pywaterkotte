@@ -1,6 +1,7 @@
 .vscode/
 build/
-*.egg-info/
-*.pyc
+*.egg
+*.egg-info
+*.py[cod]
 *.tar.gz
 *.whl
