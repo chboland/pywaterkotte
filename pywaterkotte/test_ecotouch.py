@@ -42,6 +42,14 @@ def test_read_tag(wp_instance):
     assert wp_instance.read_value(EcotouchTag.TEMPERATURE_OUTSIDE) == 8.6
 
 @responses.activate
+def test_read_bitfield(wp_instance):
+    prepare_response('readTags', '#I51\tS_OK\n192\t170\n')
+    assert wp_instance.read_value(EcotouchTag.STATE_COMPRESSOR) == True
+    assert wp_instance.read_value(EcotouchTag.STATE_SOURCEPUMP) == False
+    assert wp_instance.read_value(EcotouchTag.STATE_EXTERNAL_HEATER) == True
+    assert wp_instance.read_value(EcotouchTag.STATE_HEATINGPUMP) == True
+
+@responses.activate
 def test_write(wp_instance):
     prepare_response('writeTags', '#I263\tS_OK\n192\t5\n')
     wp_instance.write_value(EcotouchTag.ADAPT_HEATING, 6)
