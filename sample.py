@@ -1,5 +1,6 @@
-from ecotouch import Ecotouch, EcotouchTag
+from pywaterkotte import Ecotouch, EcotouchTag
 from time import sleep
+
 
 wp = Ecotouch('waterkotte.lan')
 
@@ -13,3 +14,4 @@ while True:
         print("\t%s:\t%s" % (k,v))
     print('\n'*3)
     sleep(3)
+
