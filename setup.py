@@ -5,13 +5,13 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pywaterkotte", 
-    version="0.0.1",
-    author="Christian Boland",
-    author_email="pywaterkotte@chbol.de",
+    version="0.0.2",
+    author="Michael Pattison",
+    author_email="michael@pattison.de",
     description="python library for waterkotte heatpumps",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/chboland/pywaterkotte",
+    url="https://github.com/pattisonmichael/pywaterkotte",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
