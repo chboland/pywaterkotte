@@ -4,7 +4,8 @@ import requests
 import re
 from enum import Enum
 from datetime import datetime, timedelta
-import random
+#import random
+import aiohttp
 
 MAX_NO_TAGS = 20
 
@@ -253,7 +254,7 @@ class Ecotouch:
 
     # extracts statuscode from response
     def get_status_response(self, r):
-        match = re.search(r"^#([A-Z_]+)", r.text, re.MULTILINE)
+        match = re.search(r"^#([A-Z_]+)", r, re.MULTILINE)
         if match is None:
             raise InvalidResponseException(
                 "Ungültige Antwort. Konnte Status nicht auslesen."
@@ -261,17 +262,25 @@ class Ecotouch:
         return match.group(1)
 
     # performs a login. Has to be called before any other method.
-    def login(self, username="waterkotte", password="waterkotte"):
+    async def login(self, username="waterkotte", password="waterkotte"):
         args = {"username": username, "password": password}
-        r = requests.get("http://%s/cgi/login" % self.hostname, params=args)
-        if self.get_status_response(r) != "S_OK":
-            raise StatusException(
-                "Fehler beim Login: Status:%s" % self.get_status_response(r)
-            )
-        self.auth_cookies = r.cookies
+        #r = requests.get("http://%s/cgi/login" % self.hostname, params=args)
+        async with aiohttp.ClientSession() as session:
+            r = await session.get("http://%s/cgi/login" % self.hostname, params=args)
+            async with r:
+                assert r.status == 200
+                #r = await resp.text()
+                
+                print(await r.text())
+                print(r.status)
+                if self.get_status_response(await r.text()) != "S_OK":
+                    raise StatusException(
+                        "Fehler beim Login: Status:%s" % self.get_status_response(await r.text())
+                    )
+                self.auth_cookies = r.cookies
 
-    def read_value(self, tag: EcotouchTag):
-        res = self.read_values([tag])
+    async def read_value(self, tag: EcotouchTag):
+        res = await self.read_values([tag])
         if tag in res:
             return res[tag]
         return None
@@ -289,10 +298,10 @@ class Ecotouch:
     def write_value(self, tag, value):
         self.write_values([(tag, value)])
 
-    def read_values(self, tags: Sequence[EcotouchTag]):
+    async def read_values(self, tags: Sequence[EcotouchTag]):
         # create flat list of ecotouch tags to be read
         e_tags = list(set([etag for tag in tags for etag in tag.tags]))
-        e_values,e_status = self._read_tags(e_tags)
+        e_values,e_status = await self._read_tags(e_tags)
 
         result = {}
         #result_status = {}
@@ -319,7 +328,7 @@ class Ecotouch:
     #
     # reads a list of ecotouch tags
     #
-    def _read_tags(self, tags: Sequence[EcotouchTag], results={},results_status={}):
+    async def _read_tags(self, tags: Sequence[EcotouchTag], results={},results_status={}):
         
         if len(tags) > MAX_NO_TAGS:
             results, results_status = self._read_tags(tags[MAX_NO_TAGS:], results, results_status)
@@ -329,21 +338,27 @@ class Ecotouch:
         args["n"] = len(tags)
         for i in range(len(tags)):
             args["t%d" % (i + 1)] = tags[i]
-        r = requests.get(
-            "http://%s/cgi/readTags" % self.hostname,
-            params=args,
-            cookies=self.auth_cookies,
-        )
+        # r = requests.get(
+        #     "http://%s/cgi/readTags" % self.hostname,
+        #     params=args,
+        #     cookies=self.auth_cookies,
+        # )
+        async with aiohttp.ClientSession(cookies=self.auth_cookies) as session:
+            async with session.get("http://%s/cgi/readTags" % self.hostname,params=args) as resp:
+                r = await resp.text()
+                #print(r)
         for tag in tags:
             match = re.search(
                 r"#%s\t(?P<status>[A-Z_]+)\n\d+\t(?P<value>\-?\d+)" % tag,
-                r.text,
+                #r.text,
+                r,
                 re.MULTILINE,
             )
             if match is None:
                 match = re.search(
                 r"#%s\tE_INACTIVETAG" % tag,
-                r.text,
+                #r.text,
+                r,
                 re.MULTILINE,
                 )
                 val_status="E_INACTIVE"
