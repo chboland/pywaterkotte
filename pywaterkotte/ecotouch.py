@@ -521,7 +521,10 @@ class Ecotouch:
             #     val = tag.read_function(tag, e_values, tag.bit)
             # else:
             #     val = None
-            result[tag] = {"value": val, "status": e_status[tag_status]}  # pylint: disable=undefined-loop-variable
+            try:
+                result[tag] = {"value": val, "status": e_status[tag_status]}  # pylint: disable=undefined-loop-variable
+            except KeyError:
+                print(f"Key Error in read_values. tagstatus:{tag_status} tag: {tag} val: {val} e_status:{e_status} e_values:{e_values} regquested tags:{tags}")
         return result
 
     #
