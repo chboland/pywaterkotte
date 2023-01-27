@@ -362,6 +362,32 @@ aI110 = [
 
 r = requests.get(
     "http://192.168.0.193/config/xml.cgi?D%7C1%7C1350%7CA%7C1%7C1700%7CI%7C1%7C3100"
+    # "http://localhost:8000/waterkotte.xml"
+)
+print(f"Status code: {r.status_code}")
+
+tree = ET.fromstring(r.text)
+# tree = ET.parse(
+#     "/workspaces/waterkotte-heatpump/custom_components/pywaterkotte/waterkotte3.xml"
+# )
+# print(tree[0])
+root = tree[0]
+# for types in root[0]:
+#    print(types.tag)
+for tag_type in root:
+    # print(tag_type)
+    for tag in tag_type:
+        # print(tag)
+        if int(tag[0].text) < 50:
+            print(f"{tag_type.tag[0]}{tag[0].text}={tag[1].text}")
+
+
+print(aI110[int(root[2][109][1].text)])
+
+print("Second run")
+r = requests.get(
+    "http://192.168.0.193/config/xml.cgi?A|1|120|I|1|50"
+    # "http://localhost:8000/waterkotte.xml"
 )
 print(f"Status code: {r.status_code}")
 
@@ -370,31 +396,10 @@ tree = ET.fromstring(r.text)
 #     "/workspaces/waterkotte-heatpump/custom_components/pywaterkotte/waterkotte3.xml"
 # )
 
-root = tree.getroot()
+root = tree[0]
 # for types in root[0]:
 #    print(types.tag)
-for tag_type in root[0]:
-    for tag in tag_type:
-
-        if int(tag[0].text) < 50:
-            print(f"{tag_type.tag[0]}{tag[0].text}={tag[1].text}")
-
-
-print(aI110[int(root[0][2][109][1].text)])
-
-print("Second run")
-r = requests.get("http://192.168.0.193/config/xml.cgi?A|1|120|I|1|50")
-print(f"Status code: {r.status_code}")
-
-tree = ET.fromstring(r.text)
-# tree = ET.parse(
-#     "/workspaces/waterkotte-heatpump/custom_components/pywaterkotte/waterkotte3.xml"
-# )
-
-root = tree.getroot()
-# for types in root[0]:
-#    print(types.tag)
-for tag_type in root[0]:
+for tag_type in root:
     for tag in tag_type:
 
         if int(tag[0].text) < 50:
