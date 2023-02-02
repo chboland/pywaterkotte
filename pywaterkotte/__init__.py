@@ -1,3 +1,10 @@
-from .ecotouch import Ecotouch, EcotouchTag, StatusException, InvalidResponseException, InvalidValueException
+from .ecotouch import (
+    Ecotouch,
+    EcotouchTag,
+    StatusException,
+    InvalidResponseException,
+    InvalidValueException,
+)
+from .easycon import Easycon
 
 name = "pywaterkotte"

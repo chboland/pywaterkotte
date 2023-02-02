@@ -1,3 +1,4 @@
+""" Usage sample for lib """
 from pywaterkotte import Ecotouch, EcotouchTag
 from time import sleep
 import asyncio
