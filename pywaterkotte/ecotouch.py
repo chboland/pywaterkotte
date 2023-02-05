@@ -1,104 +1,119 @@
-from typing import Any, Callable, Collection, NamedTuple, Sequence, Tuple
-import requests
+"""
+library for communicating with waterkote ecotouch heatpumps
+"""
 import re
-from enum import Enum
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any, Callable, Collection, Tuple
+
+import requests
 
 MAX_NO_TAGS = 20
-
-
-class StatusException(Exception):
-    pass
+REQUEST_TIMEOUT = 3000
 
 
 class InvalidResponseException(Exception):
-    pass
+    """the heatpump sent an unexpected response"""
 
 
 class InvalidValueException(Exception):
-    pass
+    """thrown if value to be written is not suitable for a tag"""
 
 
-class EcotouchTag:
-    pass
+class AuthenticationException(Exception):
+    """thrown if login failed"""
 
 
-# default method that reads a value based on a single tag
-def _parse_value_default(self: EcotouchTag, vals, bitnum=None, *other_args):
-    assert len(self.tags) == 1
-    ecotouch_tag = self.tags[0]
-    assert ecotouch_tag[0] in ["A", "I", "D"]
+class ConnectionException(Exception):
+    """thrown if connection with heatpump not possible"""
 
-    if ecotouch_tag not in vals:
-        return None
 
-    val = vals[ecotouch_tag]
+@dataclass
+class TagData:
+    """collects all information required to read/write values"""
 
-    if ecotouch_tag[0] == "A":
-        return float(val) / 10.0
-    if ecotouch_tag[0] == "I":
-        if bitnum is None:
-            return int(val)
-        else:
-            return (int(val) & (1 << bitnum)) > 0
+    def __hash__(self) -> int:
+        return hash(tuple(self.tags))
 
-    if ecotouch_tag[0] == "D":
-        if val == "1":
-            return True
-        elif val == "0":
-            return False
-        else:
+    def _parse_value_default(self, vals: dict, bitnum, *_):
+        """
+        default method that reads a value based on
+        * a single tag if type A or D
+        * one or more tags if type I
+        """
+        ecotouch_tag = self.tags[0]
+        all_i = all(tag.startswith("I") for tag in self.tags) and bitnum is None
+        assert all_i or ecotouch_tag[0] in ["A", "I", "D"]
+
+        if ecotouch_tag not in vals:
+            return None
+
+        val = vals[ecotouch_tag]
+
+        # float case
+        if ecotouch_tag.startswith("A"):
+            return float(val) / 10.0
+
+        # integer case
+        if ecotouch_tag.startswith("I"):
+            if bitnum is not None:
+                return (int(val) & (1 << bitnum)) > 0
+            ivals = [vals[tag] for tag in self.tags]
+            return int("".join(ivals))
+
+        # boolean case
+        if ecotouch_tag.startswith("D"):
+            if val == "1":
+                return True
+            if val == "0":
+                return False
             raise InvalidValueException(
-                "%s is not a valid value for %s" % (val, ecotouch_tag)
+                f"{val} is not a valid value for {ecotouch_tag}"
             )
+        raise Exception("Invalid tag type")
 
+    def _write_value_default(self, value, et_values):
+        assert len(self.tags) == 1
+        ecotouch_tag = self.tags[0]
+        assert ecotouch_tag[0] in ["A", "I", "D"]
 
-def _write_value_default(self, value, et_values):
-    assert len(self.tags) == 1
-    ecotouch_tag = self.tags[0]
-    assert ecotouch_tag[0] in ["A", "I", "D"]
+        if ecotouch_tag[0] == "I":
+            assert isinstance(value, int)
+            et_values[ecotouch_tag] = str(value)
+        elif ecotouch_tag[0] == "D":
+            assert isinstance(value, bool)
+            et_values[ecotouch_tag] = "1" if value else "0"
+        elif ecotouch_tag[0] == "A":
+            assert isinstance(value, float)
+            et_values[ecotouch_tag] = str(int(value * 10))
 
-    if ecotouch_tag[0] == "I":
-        assert isinstance(value, int)
-        et_values[ecotouch_tag] = str(value)
-    elif ecotouch_tag[0] == "D":
-        assert isinstance(value, bool)
-        et_values[ecotouch_tag] = "1" if value else "0"
-    elif ecotouch_tag[0] == "A":
-        assert isinstance(value, float)
-        et_values[ecotouch_tag] = str(int(value * 10))
+    def _parse_time(self, e_vals, *_):
+        vals = [int(e_vals[tag]) for tag in self.tags]
+        vals[0] = vals[0] + 2000
+        next_day = False
+        if vals[3] == 24:
+            vals[3] = 0
+            next_day = True
 
+        dt_val = datetime(*vals)
+        return dt_val + timedelta(days=1) if next_day else dt_val
 
-def _parse_time(self, e_vals, *other_args):
-    vals = [int(e_vals[tag]) for tag in self.tags]
-    vals[0] = vals[0] + 2000
-    next_day = False
-    if vals[3] == 24:
-        vals[3] = 0
-        next_day = True
-
-    dt = datetime(*vals)
-    return dt + timedelta(days=1) if next_day else dt
-
-
-def _write_time(tag, value, et_values):
-    assert isinstance(value, datetime)
-    vals = [
-        str(val)
-        for val in [
-            value.year % 100,
-            value.month,
-            value.day,
-            value.hour,
-            value.minute,
-            value.second,
+    def _write_time(self, value, et_values):
+        assert isinstance(value, datetime)
+        vals = [
+            str(val)
+            for val in [
+                value.year % 100,
+                value.month,
+                value.day,
+                value.hour,
+                value.minute,
+                value.second,
+            ]
         ]
-    ]
-    for i in range(len(tag.tags)):
-        et_values[tag.tags[i]] = vals[i]
+        for i, val in enumerate(self.tags):
+            et_values[self.tags[i]] = vals[i]
 
-
-class TagData(NamedTuple):
     tags: Collection[str]
     unit: str = None
     writeable: bool = False
@@ -107,20 +122,22 @@ class TagData(NamedTuple):
     bit: int = None
 
 
-class EcotouchTag(TagData, Enum):
+class EcotouchTags(TagData):
+    """enumeration and configuration of all configured ecotouch tags"""
+
     TEMPERATURE_OUTSIDE = TagData(["A1"], "°C")
     HOLIDAY_ENABLED = TagData(["D420"], writeable=True)
     HOLIDAY_START_TIME = TagData(
         ["I1254", "I1253", "I1252", "I1250", "I1251"],
         writeable=True,
-        read_function=_parse_time,
-        write_function=_write_time,
+        read_function=TagData._parse_time,
+        write_function=TagData._write_time,
     )
     HOLIDAY_END_TIME = TagData(
         ["I1259", "I1258", "I1257", "I1255", "I1256"],
         writeable=True,
-        read_function=_parse_time,
-        write_function=_write_time,
+        read_function=TagData._parse_time,
+        write_function=TagData._write_time,
     )
     TEMPERATURE_OUTSIDE_1H = TagData(["A2"], "°C")
     TEMPERATURE_OUTSIDE_24H = TagData(["A3"], "°C")
@@ -134,67 +151,177 @@ class EcotouchTag(TagData, Enum):
     STATE_COMPRESSOR = TagData(["I51"], bit=3)
     STATE_EXTERNAL_HEATER = TagData(["I51"], bit=5)
     HEATPUMP_TYPE = TagData(["I105"])
+    SERIAL_NUMBER = TagData(["I114", "I115"])
+    COMPRESSOR_ELECTRICAL_POWER = TagData(["A25"], "W")
+    COMPRESSOR_ELECTRIC_CONSUMPTION_YEAR = TagData(["A444"], "kWh")
+    SOURCEPUMP_ELECTRIC_CONSUMPTION_YEAR = TagData(["A446"], "kWh")
+    ELECTRICAL_HEATER_ELECTRIC_CONSUMPTION_YEAR = TagData(["A448"], "kWh")
+    HEATING_ENERGY_PRODUCED_YEAR = TagData(["A452"], "kWh")
+    HOT_WATER_ENERGY_PRODUCED_YEAR = TagData(["A454"], "kWh")
+    POWER_COMPRESSOR = TagData(["A25"], "kW")
+    POWER_HEATING = TagData(["A26"], "kW")
+    POWER_COOLING = TagData(["A27"], "kW")
 
-    def __hash__(self) -> int:
-        return hash(self.name)
 
-
-#
-# Class to control Waterkotte Ecotouch heatpumps.
-#
 class Ecotouch:
+    """Class to control Waterkotte Ecotouch heatpumps."""
+
     auth_cookies = None
 
     def __init__(self, host):
         self.hostname = host
+        self.language_dictionary = self.init_translations()
 
-    # extracts statuscode from response
-    def get_status_response(self, r):
-        match = re.search(r"^#([A-Z_]+)", r.text, re.MULTILINE)
-        if match is None:
-            raise InvalidResponseException(
-                "Ungültige Antwort. Konnte Status nicht auslesen."
+    def init_translations(self) -> dict[str, tuple[str, str, str]]:
+        """initializes value-names: key: (de, en, fr)"""
+        try:
+            response = requests.get(
+                f"http://{self.hostname}/easycon/js/dictionary.js",
+                timeout=REQUEST_TIMEOUT,
             )
+            if not response.ok:
+                raise ConnectionException(
+                    f"heatpump returned {response.status_code} {response.reason}"
+                )
+            TRANSLATION_REGEX = r'[^"]*'
+
+            def replace_unicode(match: re.Match[str]) -> str:
+                char_bytes = ord(match.group(1)).to_bytes(2, "little") + int(
+                    match.group(2), 16
+                ).to_bytes(2, "little")
+                return char_bytes.decode("utf-16")
+
+            def replace_x_code(match: re.Match[str]) -> str:
+                in_str = match.group(1)
+                char_bytes = int(in_str, 16).to_bytes(2, "little")
+                replacement = char_bytes.decode("utf-16")
+                return replacement
+
+            text = re.sub(r"\\x([0-9a-fA-F]{2})", replace_x_code, response.text)
+            text = re.sub(r"(\w)\\u(\d{4})", replace_unicode, text)
+
+            translations: dict[str, tuple] = {}
+            matches = re.findall(
+                rf'lng(?P<id>[\w\d]+)=\["(?P<de_text>{TRANSLATION_REGEX})","(?P<en_text>{TRANSLATION_REGEX})","(?P<fr_text>{TRANSLATION_REGEX})"]',
+                text,
+            )
+            for match in matches:
+                translations[match[0]] = (
+                    match[1],
+                    match[2],
+                    match[3],
+                )
+            matches = re.findall(
+                rf'lng(?P<id>[\w\d]+)=\["(?P<de_text>{TRANSLATION_REGEX})","(?P<en_text>{TRANSLATION_REGEX})"]',
+                text,
+            )
+            for match in matches:
+                translations[match[0]] = (
+                    match[1],
+                    match[2],
+                    None,
+                )
+
+            matches = re.findall(
+                rf'lng(?P<id>[\w\d]+)="(?P<de_text>{TRANSLATION_REGEX})"', text
+            )
+            for match in matches:
+                translations[match[0]] = (
+                    match[1],
+                    match[1],
+                    match[1],
+                )
+
+            matches = re.findall(r"lng(?P<id>[\w\d]+)=lng(?P<other_id>[\w\d]+)", text)
+            for match in matches:
+                if match[1] in translations.keys():
+                    translations[match[0]] = translations[match[1]]
+            return translations
+
+        except (ConnectionError, OSError) as conn_eror:
+            raise ConnectionException("could not connect to heatpump") from conn_eror
+
+    def get_tag_description(self, tag: TagData, language_no=0) -> str:
+        """returns the description of a tag"""
+        key = tag.tags[0]
+        if tag.bit is not None:
+            key += f"_{tag.bit}"
+        res = self.language_dictionary.get(key, (None, None, None))[language_no]
+        if res == "":
+            return None
+        return res
+
+    def _get_status_response(self, response):
+        """extracts state from response"""
+        match = re.search(r"^#([A-Z_]+)", response.text, re.MULTILINE)
+        if match is None:
+            raise InvalidResponseException("invalid response. could not read state")
         return match.group(1)
 
+    hp_type_csv = None  # remember parsed csv data
+
     def decode_heatpump_series(self, heatpump_type: int) -> str:
-        r = requests.get("http://%s/easycon/hpType.csv" % self.hostname)
-        lines = r.text.splitlines()
-        csv_data = [line.split(";") for line in lines]
-        return csv_data[heatpump_type][2]
-
-    # performs a login. Has to be called before any other method.
-    def login(self, username="waterkotte", password="waterkotte"):
-        args = {"username": username, "password": password}
-        r = requests.get("http://%s/cgi/login" % self.hostname, params=args)
-        if self.get_status_response(r) != "S_OK":
-            raise StatusException(
-                "Fehler beim Login: Status:%s" % self.get_status_response(r)
+        """Translates the heatpump type (number) to a human readable series string"""
+        if self.hp_type_csv is None:
+            result = requests.get(
+                f"http://{self.hostname}/easycon/hpType.csv", timeout=REQUEST_TIMEOUT
             )
-        self.auth_cookies = r.cookies
+            if not result.ok:
+                raise ConnectionException(
+                    f"heatpump returned {result.status_code} {result.reason}"
+                )
 
-    def read_value(self, tag: EcotouchTag):
+            lines = result.text.splitlines()
+            hp_type_csv = [line.split(";") for line in lines]
+        return hp_type_csv[heatpump_type][2]
+
+    def login(self, username="waterkotte", password="waterkotte"):
+        """performs a login. Has to be called before any other method."""
+        args = {"username": username, "password": password}
+        try:
+            result = requests.get(
+                f"http://{self.hostname}/cgi/login",
+                params=args,
+                timeout=REQUEST_TIMEOUT,
+            )
+            if not result.ok:
+                raise ConnectionException("invalid result from server")
+            if self._get_status_response(result) != "S_OK":
+                raise AuthenticationException(
+                    f"login error: {self._get_status_response(result)}"
+                )
+            self.auth_cookies = result.cookies
+        except (ConnectionError, OSError) as conn_eror:
+            raise ConnectionException("could not connect to heatpump") from conn_eror
+
+    def read_value(self, tag: TagData):
+        """reads a single value from heatpump"""
         res = self.read_values([tag])
         if tag in res:
             return res[tag]
         return None
 
-    def write_values(self, kv_pairs: Collection[Tuple[EcotouchTag, Any]]):
+    def write_values(self, kv_pairs: Collection[Tuple[TagData, Any]]):
+        """writes values to heatpump"""
         to_write = {}
-        for k, v in kv_pairs:
-            if not k.writeable:
+        for key, value in kv_pairs:
+            if not key.writeable:
                 raise InvalidValueException("tried to write to an readonly field")
-            k.write_function(k, v, to_write)
+            key.write_function(key, value, to_write)
 
-        for k, v in to_write.items():
-            self._write_tag(k, v)
+        for key, value in to_write.items():
+            self._write_tag(key, value)
 
     def write_value(self, tag, value):
+        """writes single value to heatpump"""
         self.write_values([(tag, value)])
 
-    def read_values(self, tags: Sequence[EcotouchTag]):
-        # create flat list of ecotouch tags to be read
-        e_tags = list(set([etag for tag in tags for etag in tag.tags]))
+    def read_values(self, tags: list[TagData]) -> dict[TagData, Any]:
+        """reads multiple values from heatpump"""
+        e_tags = []
+        for etag in tags:
+            for wtag in etag.tags:
+                e_tags.append(wtag)
         e_values = self._read_tags(e_tags)
 
         result = {}
@@ -203,46 +330,51 @@ class Ecotouch:
             result[tag] = val
         return result
 
-    #
-    # reads a list of ecotouch tags
-    #
-    def _read_tags(self, tags: Sequence[EcotouchTag], results={}):
+    def _read_tags(self, tags: list[TagData], results=None) -> dict[TagData, str]:
+        """reads a list of ecotouch tags"""
+        if results is None:
+            results = {}
+
+        if len(tags) == 0:
+            return results
 
         if len(tags) > MAX_NO_TAGS:
-            results = self.read_tags(tags[MAX_NO_TAGS:], results)
+            results = self._read_tags(tags[MAX_NO_TAGS:], results)
         tags = tags[:MAX_NO_TAGS]
 
         args = {}
         args["n"] = len(tags)
-        for i in range(len(tags)):
-            args["t%d" % (i + 1)] = tags[i]
-        r = requests.get(
-            "http://%s/cgi/readTags" % self.hostname,
+        for i, tag in enumerate(tags):
+            args[f"t{i+1}"] = tag
+        result = requests.get(
+            f"http://{self.hostname}/cgi/readTags",
             params=args,
             cookies=self.auth_cookies,
+            timeout=REQUEST_TIMEOUT,
         )
         for tag in tags:
             match = re.search(
-                r"#%s\t(?P<status>[A-Z_]+)\n\d+\t(?P<value>\-?\d+)" % tag,
-                r.text,
+                rf"#{tag}\t(?P<status>[A-Z_]+)\n\d+\t(?P<value>\-?\d+)",
+                result.text,
                 re.MULTILINE,
             )
             if match is None:
                 raise Exception("tag not found in response")
             val_str = match.group("value")
-            val_status = match.group("status")
+            # val_status = match.group("status")
             results[tag] = val_str
         return results
 
     #
     # writes <value> into the tag <tag>
     #
-    def _write_tag(self, tag: EcotouchTag, value):
+    def _write_tag(self, tag: TagData, value):
         args = {"n": 1, "returnValue": "true", "t1": tag, "v1": value}
-        r = requests.get(
-            "http://%s/cgi/writeTags" % self.hostname,
+        response = requests.get(
+            f"http://{self.hostname}/cgi/writeTags",
             params=args,
             cookies=self.auth_cookies,
+            timeout=REQUEST_TIMEOUT,
         )
-        val_str = re.search(r"(?:^\d+\t)(\-?\d+)", r.text, re.MULTILINE).group(1)
+        val_str = re.search(r"(?:^\d+\t)(\-?\d+)", response.text, re.MULTILINE).group(1)
         return val_str
