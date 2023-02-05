@@ -4,11 +4,12 @@ library for communicating with waterkote ecotouch heatpumps
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import struct
 from typing import Any, Callable, Collection, Tuple
 
 import requests
 
-MAX_NO_TAGS = 20
+MAX_NO_TAGS = 75
 REQUEST_TIMEOUT = 3000
 
 
@@ -38,12 +39,10 @@ class TagData:
     def _parse_value_default(self, vals: dict, bitnum, *_):
         """
         default method that reads a value based on
-        * a single tag if type A or D
-        * one or more tags if type I
+        * a single tag if type D
+        * one or more tags if type I or A
         """
         ecotouch_tag = self.tags[0]
-        all_i = all(tag.startswith("I") for tag in self.tags) and bitnum is None
-        assert all_i or ecotouch_tag[0] in ["A", "I", "D"]
 
         if ecotouch_tag not in vals:
             return None
@@ -52,7 +51,10 @@ class TagData:
 
         # float case
         if ecotouch_tag.startswith("A"):
-            return float(val) / 10.0
+            if (len(self.tags) == 1):
+                return float(val) / 10.
+            ivals = [int(vals[tag]) for tag in self.tags]
+            return struct.unpack('!f', bytes.fromhex('{0:02x}'.format(ivals[0]) + '{0:02x}'.format(ivals[1])))[0]
 
         # integer case
         if ecotouch_tag.startswith("I"):
@@ -153,11 +155,12 @@ class EcotouchTags(TagData):
     HEATPUMP_TYPE = TagData(["I105"])
     SERIAL_NUMBER = TagData(["I114", "I115"])
     COMPRESSOR_ELECTRICAL_POWER = TagData(["A25"], "W")
-    COMPRESSOR_ELECTRIC_CONSUMPTION_YEAR = TagData(["A444"], "kWh")
-    SOURCEPUMP_ELECTRIC_CONSUMPTION_YEAR = TagData(["A446"], "kWh")
-    ELECTRICAL_HEATER_ELECTRIC_CONSUMPTION_YEAR = TagData(["A448"], "kWh")
-    HEATING_ENERGY_PRODUCED_YEAR = TagData(["A452"], "kWh")
-    HOT_WATER_ENERGY_PRODUCED_YEAR = TagData(["A454"], "kWh")
+    COMPRESSOR_ELECTRIC_CONSUMPTION_YEAR = TagData(["A444", "A445"], "kWh")
+    SOURCEPUMP_ELECTRIC_CONSUMPTION_YEAR = TagData(["A446", "A447"], "kWh")
+    ELECTRICAL_HEATER_ELECTRIC_CONSUMPTION_YEAR = TagData(
+        ["A448", "A449"], "kWh")
+    HEATING_ENERGY_PRODUCED_YEAR = TagData(["A452", "A453"], "kWh")
+    HOT_WATER_ENERGY_PRODUCED_YEAR = TagData(["A454", "A455"], "kWh")
     POWER_COMPRESSOR = TagData(["A25"], "kW")
     POWER_HEATING = TagData(["A26"], "kW")
     POWER_COOLING = TagData(["A27"], "kW")
@@ -170,7 +173,7 @@ class Ecotouch:
 
     def __init__(self, host):
         self.hostname = host
-        self.language_dictionary = self.init_translations()
+        self.language_dictionary = None
 
     def init_translations(self) -> dict[str, tuple[str, str, str]]:
         """initializes value-names: key: (de, en, fr)"""
@@ -197,7 +200,8 @@ class Ecotouch:
                 replacement = char_bytes.decode("utf-16")
                 return replacement
 
-            text = re.sub(r"\\x([0-9a-fA-F]{2})", replace_x_code, response.text)
+            text = re.sub(r"\\x([0-9a-fA-F]{2})",
+                          replace_x_code, response.text)
             text = re.sub(r"(\w)\\u(\d{4})", replace_unicode, text)
 
             translations: dict[str, tuple] = {}
@@ -232,21 +236,29 @@ class Ecotouch:
                     match[1],
                 )
 
-            matches = re.findall(r"lng(?P<id>[\w\d]+)=lng(?P<other_id>[\w\d]+)", text)
+            matches = re.findall(
+                r"lng(?P<id>[\w\d]+)=lng(?P<other_id>[\w\d]+)", text)
             for match in matches:
                 if match[1] in translations.keys():
                     translations[match[0]] = translations[match[1]]
             return translations
 
         except (ConnectionError, OSError) as conn_eror:
-            raise ConnectionException("could not connect to heatpump") from conn_eror
+            raise ConnectionException(
+                "could not connect to heatpump") from conn_eror
 
     def get_tag_description(self, tag: TagData, language_no=0) -> str:
-        """returns the description of a tag"""
+        """returns the description of a tag
+        0=DE
+        1=EN
+        2=FR"""
+        if self.language_dictionary is None:
+            self.language_dictionary = self.init_translations()
         key = tag.tags[0]
         if tag.bit is not None:
             key += f"_{tag.bit}"
-        res = self.language_dictionary.get(key, (None, None, None))[language_no]
+        res = self.language_dictionary.get(
+            key, (None, None, None))[language_no]
         if res == "":
             return None
         return res
@@ -255,7 +267,8 @@ class Ecotouch:
         """extracts state from response"""
         match = re.search(r"^#([A-Z_]+)", response.text, re.MULTILINE)
         if match is None:
-            raise InvalidResponseException("invalid response. could not read state")
+            raise InvalidResponseException(
+                "invalid response. could not read state")
         return match.group(1)
 
     hp_type_csv = None  # remember parsed csv data
@@ -292,7 +305,8 @@ class Ecotouch:
                 )
             self.auth_cookies = result.cookies
         except (ConnectionError, OSError) as conn_eror:
-            raise ConnectionException("could not connect to heatpump") from conn_eror
+            raise ConnectionException(
+                "could not connect to heatpump") from conn_eror
 
     def read_value(self, tag: TagData):
         """reads a single value from heatpump"""
@@ -306,7 +320,8 @@ class Ecotouch:
         to_write = {}
         for key, value in kv_pairs:
             if not key.writeable:
-                raise InvalidValueException("tried to write to an readonly field")
+                raise InvalidValueException(
+                    "tried to write to an readonly field")
             key.write_function(key, value, to_write)
 
         for key, value in to_write.items():
@@ -376,5 +391,6 @@ class Ecotouch:
             cookies=self.auth_cookies,
             timeout=REQUEST_TIMEOUT,
         )
-        val_str = re.search(r"(?:^\d+\t)(\-?\d+)", response.text, re.MULTILINE).group(1)
+        val_str = re.search(r"(?:^\d+\t)(\-?\d+)",
+                            response.text, re.MULTILINE).group(1)
         return val_str

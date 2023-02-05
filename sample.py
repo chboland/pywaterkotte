@@ -1,17 +1,17 @@
-from pywaterkotte import Ecotouch, EcotouchTag
+from pywaterkotte import Ecotouch, EcotouchTags
 from time import sleep
 
 
-wp = Ecotouch('waterkotte.lan')
+wp = Ecotouch('192.168.2.22')
 
 wp.login()
 
-tags = [t for t in EcotouchTag]
+tags = [
+    EcotouchTags.COMPRESSOR_ELECTRIC_CONSUMPTION_YEAR,
+    EcotouchTags.COMPRESSOR_ELECTRICAL_POWER]
 
 while True:
     result = wp.read_values(tags)
-    for k,v in result.items():
-        print("\t%s:\t%s" % (k,v))
-    print('\n'*3)
+    for k, v in result.items():
+        print(f"\t{k.tags}:\t{v} {k.unit}")
     sleep(3)
-

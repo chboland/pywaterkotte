@@ -8,6 +8,7 @@ pytest = "*"
 responses = "*"
 pylint = "*"
 flake8 = "*"
+autopep8 = "*"
 
 [packages]
 requests = "*"
