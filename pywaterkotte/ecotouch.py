@@ -51,11 +51,11 @@ class TagData:
 
         # float case
         if ecotouch_tag.startswith("A"):
-            if (len(self.tags) == 1):
-                return float(val) / 10.
-            ivals = [int(vals[tag]) & 0xffff for tag in self.tags]
-            hex_string = f'{ivals[0]:04x}{ivals[1]:04x}'
-            return struct.unpack('!f', bytes.fromhex(hex_string))[0]
+            if len(self.tags) == 1:
+                return float(val) / 10.0
+            ivals = [int(vals[tag]) & 0xFFFF for tag in self.tags]
+            hex_string = f"{ivals[0]:04x}{ivals[1]:04x}"
+            return struct.unpack("!f", bytes.fromhex(hex_string))[0]
 
         # integer case
         if ecotouch_tag.startswith("I"):
@@ -128,7 +128,9 @@ class TagData:
 class EcotouchTags(TagData):
     """enumeration and configuration of all configured ecotouch tags"""
 
-    TEMPERATURE_OUTSIDE = TagData(["A1"], "°C")
+    OUTSIDE_TEMPERATURE = TagData(["A1"], "°C")
+    OUTSIDE_TEMPERATURE_1H = TagData(["A2"], "°C")
+    OUTSIDE_TEMPERATURE_24H = TagData(["A3"], "°C")
     HOLIDAY_ENABLED = TagData(["D420"], writeable=True)
     HOLIDAY_START_TIME = TagData(
         ["I1254", "I1253", "I1252", "I1250", "I1251"],
@@ -142,12 +144,21 @@ class EcotouchTags(TagData):
         read_function=TagData._parse_time,
         write_function=TagData._write_time,
     )
-    TEMPERATURE_OUTSIDE_1H = TagData(["A2"], "°C")
-    TEMPERATURE_OUTSIDE_24H = TagData(["A3"], "°C")
-    TEMPERATURE_SOURCE_IN = TagData(["A4"], "°C")
-    TEMPERATURE_SOURCE_OUT = TagData(["A5"], "°C")
-    TEMPERATURE_WATER = TagData(["A19"], "°C")
-    TEMPERATURE_WATER_SETPOINT = TagData(["A37"], "°C", writeable=True)
+    SOURCE_IN_TEMPERATURE = TagData(["A4"], "°C")
+    SOURCE_OUT_TEMPERATURE = TagData(["A5"], "°C")
+    EVAPORATION_TEMPERATURE = TagData(["A6"], "°C")
+    SUCTION_LINE_TEMPERATURE = TagData(["A7"], "°C")
+    EVAPORATION_PRESSURE = TagData(["A8"], "bar")
+    RETURN_TEMPERATURE = TagData(["A11"], "°C")
+    FLOW_TEMPERATURE = TagData(["A12"], "°C")
+    CONDENSATION_TEMPERATURE = TagData(["A13"], "°C")
+    BUFFER_TANK_TEMPERATURE = TagData(["A16"], "°C")
+    ROOM_TEMPERATURE = TagData(["A17"], "°C")
+    ROOM_TEMPERATURE_1H = TagData(["A18"], "°C")
+    HOT_WATER_TEMPERATURE = TagData(["A19"], "°C")
+    HOT_WATER_TEMPERATURE_SETPOINT = TagData(["A37"], "°C", writeable=True)
+    HEATING_TEMPERATURE = TagData(["A30"], "°C")
+    HEATING_TEMPERATURE_SETPOINT = TagData(["A31"], "°C")
     ADAPT_HEATING = TagData(["I263"], writeable=True)
     STATE_SOURCEPUMP = TagData(["I51"], bit=0)
     STATE_HEATINGPUMP = TagData(["I51"], bit=1)
@@ -155,16 +166,14 @@ class EcotouchTags(TagData):
     STATE_EXTERNAL_HEATER = TagData(["I51"], bit=5)
     HEATPUMP_TYPE = TagData(["I105"])
     SERIAL_NUMBER = TagData(["I114", "I115"])
-    COMPRESSOR_ELECTRICAL_POWER = TagData(["A25"], "W")
     COMPRESSOR_ELECTRIC_CONSUMPTION_YEAR = TagData(["A444", "A445"], "kWh")
     SOURCEPUMP_ELECTRIC_CONSUMPTION_YEAR = TagData(["A446", "A447"], "kWh")
-    ELECTRICAL_HEATER_ELECTRIC_CONSUMPTION_YEAR = TagData(
-        ["A448", "A449"], "kWh")
+    ELECTRICAL_HEATER_ELECTRIC_CONSUMPTION_YEAR = TagData(["A448", "A449"], "kWh")
     HEATING_ENERGY_PRODUCED_YEAR = TagData(["A452", "A453"], "kWh")
     HOT_WATER_ENERGY_PRODUCED_YEAR = TagData(["A454", "A455"], "kWh")
-    POWER_COMPRESSOR = TagData(["A25"], "kW")
-    POWER_HEATING = TagData(["A26"], "kW")
-    POWER_COOLING = TagData(["A27"], "kW")
+    ELECTRICAL_POWER = TagData(["A25"], "kW")
+    THERMAL_POWER = TagData(["A26"], "kW")
+    COOLING_POWER = TagData(["A27"], "kW")
 
 
 class Ecotouch:
@@ -201,8 +210,7 @@ class Ecotouch:
                 replacement = char_bytes.decode("utf-16")
                 return replacement
 
-            text = re.sub(r"\\x([0-9a-fA-F]{2})",
-                          replace_x_code, response.text)
+            text = re.sub(r"\\x([0-9a-fA-F]{2})", replace_x_code, response.text)
             text = re.sub(r"(\w)\\u(\d{4})", replace_unicode, text)
 
             translations: dict[str, tuple] = {}
@@ -237,16 +245,14 @@ class Ecotouch:
                     match[1],
                 )
 
-            matches = re.findall(
-                r"lng(?P<id>[\w\d]+)=lng(?P<other_id>[\w\d]+)", text)
+            matches = re.findall(r"lng(?P<id>[\w\d]+)=lng(?P<other_id>[\w\d]+)", text)
             for match in matches:
                 if match[1] in translations.keys():
                     translations[match[0]] = translations[match[1]]
             return translations
 
         except (ConnectionError, OSError) as conn_eror:
-            raise ConnectionException(
-                "could not connect to heatpump") from conn_eror
+            raise ConnectionException("could not connect to heatpump") from conn_eror
 
     def get_tag_description(self, tag: TagData, language_no=0) -> str:
         """returns the description of a tag
@@ -258,8 +264,7 @@ class Ecotouch:
         key = tag.tags[0]
         if tag.bit is not None:
             key += f"_{tag.bit}"
-        res = self.language_dictionary.get(
-            key, (None, None, None))[language_no]
+        res = self.language_dictionary.get(key, (None, None, None))[language_no]
         if res == "":
             return None
         return res
@@ -268,8 +273,7 @@ class Ecotouch:
         """extracts state from response"""
         match = re.search(r"^#([A-Z_]+)", response.text, re.MULTILINE)
         if match is None:
-            raise InvalidResponseException(
-                "invalid response. could not read state")
+            raise InvalidResponseException("invalid response. could not read state")
         return match.group(1)
 
     hp_type_csv = None  # remember parsed csv data
@@ -306,8 +310,7 @@ class Ecotouch:
                 )
             self.auth_cookies = result.cookies
         except (ConnectionError, OSError) as conn_eror:
-            raise ConnectionException(
-                "could not connect to heatpump") from conn_eror
+            raise ConnectionException("could not connect to heatpump") from conn_eror
 
     def read_value(self, tag: TagData):
         """reads a single value from heatpump"""
@@ -321,8 +324,7 @@ class Ecotouch:
         to_write = {}
         for key, value in kv_pairs:
             if not key.writeable:
-                raise InvalidValueException(
-                    "tried to write to an readonly field")
+                raise InvalidValueException("tried to write to an readonly field")
             key.write_function(key, value, to_write)
 
         for key, value in to_write.items():
@@ -392,6 +394,5 @@ class Ecotouch:
             cookies=self.auth_cookies,
             timeout=REQUEST_TIMEOUT,
         )
-        val_str = re.search(r"(?:^\d+\t)(\-?\d+)",
-                            response.text, re.MULTILINE).group(1)
+        val_str = re.search(r"(?:^\d+\t)(\-?\d+)", response.text, re.MULTILINE).group(1)
         return val_str
