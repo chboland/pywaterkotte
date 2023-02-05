@@ -53,8 +53,9 @@ class TagData:
         if ecotouch_tag.startswith("A"):
             if (len(self.tags) == 1):
                 return float(val) / 10.
-            ivals = [int(vals[tag]) for tag in self.tags]
-            return struct.unpack('!f', bytes.fromhex(f'{ivals[0]:04x}{ivals[1]:04x}'))[0]
+            ivals = [int(vals[tag]) & 0xffff for tag in self.tags]
+            hex_string = f'{ivals[0]:04x}{ivals[1]:04x}'
+            return struct.unpack('!f', bytes.fromhex(hex_string))[0]
 
         # integer case
         if ecotouch_tag.startswith("I"):
