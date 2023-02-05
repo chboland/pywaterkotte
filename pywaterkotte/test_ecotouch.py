@@ -50,6 +50,15 @@ def test_read_float32(wp_instance):
                          '#A445\tS_OK\n192\t7519\n']))
     assert wp_instance.read_value(EcotouchTags.COMPRESSOR_ELECTRIC_CONSUMPTION_YEAR) == pytest.approx(2753.8, 0.1)
 
+@responses.activate
+def test_read_float32_zeroes(wp_instance):
+    RESPONSE = "#A448\tS_OK\n192\t0\n#A449\tS_OK\n192\t0\n"
+    prepare_response("readTags", RESPONSE)
+    result = wp_instance.read_value(
+        EcotouchTags.ELECTRICAL_HEATER_ELECTRIC_CONSUMPTION_YEAR
+    )
+    assert result == 0
+
 
 @ responses.activate
 def test_read_tag(wp_instance):
