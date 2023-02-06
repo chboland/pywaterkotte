@@ -6,9 +6,7 @@ verify_ssl = true
 [dev-packages]
 pytest = "*"
 responses = "*"
-pylint = "*"
-flake8 = "*"
-autopep8 = "*"
+black = "*"
 
 [packages]
 requests = "*"
