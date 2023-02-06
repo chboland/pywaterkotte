@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pywaterkotte"
+version = "0.0.1"
+authors = [
+  { name="Christian Boland", email="github@chbol.de" },
+]
+description = "python library for waterkotte heatpumps"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/chboland/pywaterkotte"
+"Bug Tracker" = "https://github.com/chboland/pywaterkotte/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
