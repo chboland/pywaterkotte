@@ -69,7 +69,7 @@ def test_read_float32(wp_instance):
 @ responses.activate
 def test_read_tag(wp_instance):
     prepare_response('readTags', '#A1\tS_OK\n192\t86\n')
-    assert wp_instance.read_value(EcotouchTags.TEMPERATURE_OUTSIDE) == 8.6
+    assert wp_instance.read_value(EcotouchTags.OUTSIDE_TEMPERATURE) == 8.6
 
 
 @ responses.activate
@@ -120,16 +120,16 @@ def test_read_multiple_tags(wp_instance):
         '#A5\tS_OK\n192\t57\n'])
     prepare_response('readTags', RESPONSE)
     result=wp_instance.read_values([
-        EcotouchTags.TEMPERATURE_OUTSIDE,
-        EcotouchTags.TEMPERATURE_OUTSIDE_1H,
-        EcotouchTags.TEMPERATURE_OUTSIDE_24H,
-        EcotouchTags.TEMPERATURE_SOURCE_IN,
-        EcotouchTags.TEMPERATURE_SOURCE_OUT])
+        EcotouchTags.OUTSIDE_TEMPERATURE,
+        EcotouchTags.OUTSIDE_TEMPERATURE_1H,
+        EcotouchTags.OUTSIDE_TEMPERATURE_24H,
+        EcotouchTags.SOURCE_IN_TEMPERATURE,
+        EcotouchTags.SOURCE_OUT_TEMPERATURE])
 
     assert result is not None
     assert isinstance(result, dict)
-    assert result[EcotouchTags.TEMPERATURE_OUTSIDE] == 8.4
-    assert result[EcotouchTags.TEMPERATURE_OUTSIDE_1H] == 8.7
-    assert result[EcotouchTags.TEMPERATURE_OUTSIDE_24H] == 9.2
-    assert result[EcotouchTags.TEMPERATURE_SOURCE_IN] == 9.5
-    assert result[EcotouchTags.TEMPERATURE_SOURCE_OUT] == 5.7
+    assert result[EcotouchTags.OUTSIDE_TEMPERATURE] == 8.4
+    assert result[EcotouchTags.OUTSIDE_TEMPERATURE_1H] == 8.7
+    assert result[EcotouchTags.OUTSIDE_TEMPERATURE_24H] == 9.2
+    assert result[EcotouchTags.SOURCE_IN_TEMPERATURE] == 9.5
+    assert result[EcotouchTags.SOURCE_OUT_TEMPERATURE] == 5.7
