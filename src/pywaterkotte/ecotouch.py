@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import struct
-from typing import Any, Callable, Collection, Tuple
+from typing import Any, Callable, Collection, Dict, Tuple
 
 import requests
 
@@ -185,7 +185,7 @@ class Ecotouch:
         self.hostname = host
         self.language_dictionary = None
 
-    def init_translations(self) -> dict[str, tuple[str, str, str]]:
+    def init_translations(self) -> Dict[str, Tuple[str, str, str]]:
         """initializes value-names: key: (de, en, fr)"""
         try:
             response = requests.get(
