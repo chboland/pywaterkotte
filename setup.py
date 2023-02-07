@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="pywaterkotte2",
-    version="0.0.4",
+    version="0.0.5b",
     author="Michael Pattison",
     author_email="michael@pattison.de",
     description="python library for waterkotte heatpumps",
@@ -19,5 +19,5 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.8',
+    python_requires=">=3.8",
 )

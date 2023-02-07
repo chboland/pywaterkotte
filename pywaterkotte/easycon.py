@@ -1,6 +1,6 @@
 """ Class to interact with Easycon sytem """
 import xml.etree.ElementTree as ET
-from ecotouch import (  # pylint: disable=import-error
+from pywaterkotte.ecotouch import (  # pylint: disable=import-error
     Ecotouch,
     Sequence,
     EcotouchTag,
