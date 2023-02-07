@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import struct
-from typing import Any, Callable, Collection, Dict, Tuple
+from typing import Any, Callable, Collection, Dict, List, Tuple
 
 import requests
 
@@ -213,7 +213,7 @@ class Ecotouch:
             text = re.sub(r"\\x([0-9a-fA-F]{2})", replace_x_code, response.text)
             text = re.sub(r"(\w)\\u(\d{4})", replace_unicode, text)
 
-            translations: dict[str, tuple] = {}
+            translations: Dict[str, tuple] = {}
             matches = re.findall(
                 rf'lng(?P<id>[\w\d]+)=\["(?P<de_text>{TRANSLATION_REGEX})","(?P<en_text>{TRANSLATION_REGEX})","(?P<fr_text>{TRANSLATION_REGEX})"]',
                 text,
@@ -334,7 +334,7 @@ class Ecotouch:
         """writes single value to heatpump"""
         self.write_values([(tag, value)])
 
-    def read_values(self, tags: list[TagData]) -> dict[TagData, Any]:
+    def read_values(self, tags: List[TagData]) -> Dict[TagData, Any]:
         """reads multiple values from heatpump"""
         e_tags = []
         for etag in tags:
@@ -348,7 +348,7 @@ class Ecotouch:
             result[tag] = val
         return result
 
-    def _read_tags(self, tags: list[TagData], results=None) -> dict[TagData, str]:
+    def _read_tags(self, tags: List[TagData], results=None) -> Dict[TagData, str]:
         """reads a list of ecotouch tags"""
         if results is None:
             results = {}
