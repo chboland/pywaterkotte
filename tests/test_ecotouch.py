@@ -18,7 +18,7 @@ def wp_instance():
 
 # Helper functions
 def prepare_response(action, body):
-    responses.add(responses.GET, "http://%s/cgi/%s" % (HOSTNAME, action), body=body)
+    responses.add(responses.GET, f"http://{HOSTNAME}/cgi/{action}", body=body)
 
 
 @responses.activate

@@ -383,10 +383,8 @@ class Ecotouch:
             results[tag] = val_str
         return results
 
-    #
-    # writes <value> into the tag <tag>
-    #
     def _write_tag(self, tag: TagData, value):
+        """writes <value> into the tag <tag>"""
         args = {"n": 1, "returnValue": "true", "t1": tag, "v1": value}
         response = requests.get(
             f"http://{self.hostname}/cgi/writeTags",
