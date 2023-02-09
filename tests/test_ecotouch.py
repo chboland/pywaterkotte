@@ -111,27 +111,21 @@ def test_read_date(wp_instance):
         ]
     )
     prepare_response("readTags", RESPONSE)
-    result = wp_instance.read_value(EcotouchTags.HOLIDAY_START_TIME)
-    assert isinstance(result, datetime)
-    assert datetime(2019, 3, 1, 18, 2) == result
+    assert wp_instance.read_value(EcotouchTags.HOLIDAY_START_TIME) == datetime(
+        2019, 3, 1, 18, 2
+    )
 
 
 def test_parse_bios_date():
-    tag = EcotouchTags.BIOS_DATE
-    vals = {tag.tags[0]: "30309"}
-    assert tag.read_function(tag, vals) == date(2019, 10, 30)
+    assert EcotouchTags.BIOS_DATE.parse_value(["30309"]) == date(2019, 10, 30)
 
 
 def test_parse_firmware():
-    tag = EcotouchTags.FIRMWARE_VERSION
-    vals = {tag.tags[0]: "10896"}
-    assert TagData._parse_firmware(tag, vals) == "01.08.96"
+    assert EcotouchTags.FIRMWARE_VERSION.parse_value(["10896"]) == "01.08.96"
 
 
 def test_parse_bios():
-    tag = EcotouchTags.BIOS
-    vals = {tag.tags[0]: "651"}
-    assert tag.read_function(tag, vals) == "6.51"
+    assert EcotouchTags.BIOS.parse_value(["651"]) == "6.51"
 
 
 @responses.activate

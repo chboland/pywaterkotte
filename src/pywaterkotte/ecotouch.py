@@ -9,6 +9,8 @@ from typing import Any, Callable, Collection, Dict, List, Tuple
 
 import requests
 
+import types
+
 MAX_NO_TAGS = 75
 REQUEST_TIMEOUT = 3000
 
@@ -36,42 +38,37 @@ class TagData:
     def __hash__(self) -> int:
         return hash(tuple(self.tags))
 
-    def _parse_value_default(self, vals: dict, bitnum, *_):
+    def _parse_value_default(self, vals: List[str]) -> Any:
         """
         default method that reads a value based on
         * a single tag if type D
         * one or more tags if type I or A
         """
-        ecotouch_tag = self.tags[0]
-
-        if ecotouch_tag not in vals:
-            return None
-
-        val = vals[ecotouch_tag]
+        first_tag = self.tags[0]
+        first_val = vals[0]
 
         # float case
-        if ecotouch_tag.startswith("A"):
+        if first_tag.startswith("A"):
             if len(self.tags) == 1:
-                return float(val) / 10.0
-            ivals = [int(vals[tag]) & 0xFFFF for tag in self.tags]
+                return float(first_val) / 10.0
+            ivals = [int(str_val) & 0xFFFF for str_val in vals]
             hex_string = f"{ivals[0]:04x}{ivals[1]:04x}"
             return struct.unpack("!f", bytes.fromhex(hex_string))[0]
 
         # integer case
-        if ecotouch_tag.startswith("I"):
-            if bitnum is not None:
-                return (int(val) & (1 << bitnum)) > 0
-            ivals = [vals[tag] for tag in self.tags]
-            return int("".join(ivals))
+        if first_tag.startswith("I"):
+            if self.bit is not None:
+                return (int(first_val) & (1 << self.bit)) > 0
+            return int("".join(vals))
 
         # boolean case
-        if ecotouch_tag.startswith("D"):
-            if val == "1":
+        if first_tag.startswith("D"):
+            if first_val == "1":
                 return True
-            if val == "0":
+            if first_val == "0":
                 return False
             raise InvalidValueException(
-                f"{val} is not a valid value for {ecotouch_tag}"
+                f"{first_val} is not a valid value for {first_tag}"
             )
         raise Exception("Invalid tag type")
 
@@ -90,8 +87,8 @@ class TagData:
             assert isinstance(value, float)
             et_values[ecotouch_tag] = str(int(value * 10))
 
-    def _parse_time(self, e_vals, *_):
-        vals = [int(e_vals[tag]) for tag in self.tags]
+    def _parse_time(self, str_vals: List[str]) -> datetime:
+        vals = list(map(int, str_vals))
         vals[0] = vals[0] + 2000
         next_day = False
         if vals[3] == 24:
@@ -117,16 +114,16 @@ class TagData:
         for i, val in enumerate(self.tags):
             et_values[self.tags[i]] = vals[i]
 
-    def _parse_firmware(self, e_vals: Dict[Any, str], *_) -> str:
-        str_val = e_vals[self.tags[0]]
+    def _parse_firmware(self, str_vals: List[str]) -> str:
+        str_val = str_vals[0]
         return f"{str_val[:-4]:0>2}.{str_val[-4:-2]}.{str_val[-2:]}"
 
-    def _parse_bios(self, e_vals: Dict[Any, str], *_) -> str:
-        str_val = e_vals[self.tags[0]]
-        return f"{str_val[-4:-2]}.{str_val[-2:]}"
+    def _parse_bios(self, str_vals: List[str]) -> str:
+        str_val = str_vals[0]
+        return f"{str_val[:-2]}.{str_val[-2:]}"
 
-    def _parse_bios_date(self, e_vals, *_):
-        int_date = int(e_vals[self.tags[0]])
+    def _parse_bios_date(self, str_vals: List[str]):
+        int_date = self._parse_value_default(str_vals)
         bios_day = int(int_date / 1000)
         bios_month = int((int_date % 1000) / 10)
         bios_year = int_date % 10
@@ -152,6 +149,9 @@ class TagData:
     read_function: Callable[[Any, Dict[Any, str], int], Any] = _parse_value_default
     write_function: Callable = _write_value_default
     bit: int = None
+
+    def parse_value(self, str_vals: List[str]) -> Any:
+        return self.read_function(self, str_vals)
 
 
 class EcotouchTags(TagData):
@@ -355,7 +355,7 @@ class Ecotouch:
 
     def write_values(self, kv_pairs: Collection[Tuple[TagData, Any]]):
         """writes values to heatpump"""
-        to_write = {}
+        to_write: Dict[str, Any] = {}
         for key, value in kv_pairs:
             if not key.writeable:
                 raise InvalidValueException("tried to write to an readonly field")
@@ -378,8 +378,8 @@ class Ecotouch:
 
         result = {}
         for tag in tags:
-            val = tag.read_function(tag, e_values, tag.bit)
-            result[tag] = val
+            str_vals = [e_values[e_tag] for e_tag in tag.tags]
+            result[tag] = tag.parse_value(str_vals)
         return result
 
     def _read_tags(self, tags: List[TagData], results=None) -> Dict[TagData, str]:
