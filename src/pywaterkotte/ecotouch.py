@@ -117,10 +117,14 @@ class TagData:
         for i, val in enumerate(self.tags):
             et_values[self.tags[i]] = vals[i]
 
+    def _parse_firmware(self, e_vals: Dict[Any, str], *_) -> str:
+        str_val = e_vals[self.tags[0]]
+        return f"{str_val[:-4]:0>2}.{str_val[-4:-2]}.{str_val[-2:]}"
+
     tags: Collection[str]
     unit: str = None
     writeable: bool = False
-    read_function: Callable = _parse_value_default
+    read_function: Callable[[Any, Dict[Any, str], int], Any] = _parse_value_default
     write_function: Callable = _write_value_default
     bit: int = None
 
@@ -174,6 +178,9 @@ class EcotouchTags(TagData):
     ELECTRICAL_POWER = TagData(["A25"], "kW")
     THERMAL_POWER = TagData(["A26"], "kW")
     COOLING_POWER = TagData(["A27"], "kW")
+    FIRMWARE_VERSION = TagData(["I1"], read_function=TagData._parse_firmware)
+    BUILD = TagData(["I2"])
+    HARDWARE_REVISION = TagData(["I1718"])
 
 
 class Ecotouch:

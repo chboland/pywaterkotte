@@ -3,6 +3,7 @@ from pywaterkotte.ecotouch import (
     EcotouchTags,
     InvalidResponseException,
     AuthenticationException,
+    TagData,
 )
 import responses
 import pytest
@@ -113,6 +114,12 @@ def test_read_date(wp_instance):
     result = wp_instance.read_value(EcotouchTags.HOLIDAY_START_TIME)
     assert isinstance(result, datetime)
     assert datetime(2019, 3, 1, 18, 2) == result
+
+
+def test_parse_firmware():
+    tag = EcotouchTags.FIRMWARE_VERSION
+    vals = {tag.tags[0]: "10896"}
+    assert TagData._parse_firmware(tag, vals) == "01.08.96"
 
 
 @responses.activate
