@@ -96,7 +96,7 @@ def test_write_date(wp_instance):
     wp_instance.write_value(
         EcotouchTags.HOLIDAY_START_TIME, datetime(2019, 3, 2, 11, 00)
     )
-    assert len(responses.calls) == 5
+    assert len(responses.calls) == 1
 
 
 @responses.activate

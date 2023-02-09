@@ -72,7 +72,8 @@ class TagData:
             )
         raise Exception("Invalid tag type")
 
-    def _write_value_default(self, value, et_values):
+    def _write_value_default(self, value):
+        et_values = {}
         assert len(self.tags) == 1
         ecotouch_tag = self.tags[0]
         assert ecotouch_tag[0] in ["A", "I", "D"]
@@ -86,6 +87,7 @@ class TagData:
         elif ecotouch_tag[0] == "A":
             assert isinstance(value, float)
             et_values[ecotouch_tag] = str(int(value * 10))
+        return et_values
 
     def _parse_time(self, str_vals: List[str]) -> datetime:
         vals = list(map(int, str_vals))
@@ -98,7 +100,8 @@ class TagData:
         dt_val = datetime(*vals)
         return dt_val + timedelta(days=1) if next_day else dt_val
 
-    def _write_time(self, value, et_values):
+    def _write_time(self, value):
+        et_values = {}
         assert isinstance(value, datetime)
         vals = [
             str(val)
@@ -112,7 +115,8 @@ class TagData:
             ]
         ]
         for i, val in enumerate(self.tags):
-            et_values[self.tags[i]] = vals[i]
+            et_values[val] = vals[i]
+        return et_values
 
     def _parse_firmware(self, str_vals: List[str]) -> str:
         str_val = str_vals[0]
@@ -147,11 +151,14 @@ class TagData:
     unit: str = None
     writeable: bool = False
     read_function: Callable[[Any, Dict[Any, str], int], Any] = _parse_value_default
-    write_function: Callable = _write_value_default
+    write_function: Callable[[Any, Any], Dict[str, str]] = _write_value_default
     bit: int = None
 
     def parse_value(self, str_vals: List[str]) -> Any:
         return self.read_function(self, str_vals)
+
+    def write_value(self, val) -> Dict[str, str]:
+        return self.write_function(self, val)
 
 
 class EcotouchTags(TagData):
@@ -353,20 +360,19 @@ class Ecotouch:
             return res[tag]
         return None
 
-    def write_values(self, kv_pairs: Collection[Tuple[TagData, Any]]):
+    def write_values(self, kv_pairs: Dict[TagData, Any]):
         """writes values to heatpump"""
-        to_write: Dict[str, Any] = {}
-        for key, value in kv_pairs:
-            if not key.writeable:
+        to_write: Dict[str, str] = {}
+        for tag, value in kv_pairs.items():
+            if not tag.writeable:
                 raise InvalidValueException("tried to write to an readonly field")
-            key.write_function(key, value, to_write)
+            to_write.update(tag.write_value(value))
 
-        for key, value in to_write.items():
-            self._write_tag(key, value)
+        self._write_tags(to_write)
 
     def write_value(self, tag, value):
         """writes single value to heatpump"""
-        self.write_values([(tag, value)])
+        self.write_values({tag: value})
 
     def read_values(self, tags: List[TagData]) -> Dict[TagData, Any]:
         """reads multiple values from heatpump"""
@@ -413,18 +419,19 @@ class Ecotouch:
             if match is None:
                 raise Exception("tag not found in response")
             val_str = match.group("value")
-            # val_status = match.group("status")
             results[tag] = val_str
         return results
 
-    def _write_tag(self, tag: TagData, value):
+    def _write_tags(self, to_write: Dict[str, str]):
         """writes <value> into the tag <tag>"""
-        args = {"n": 1, "returnValue": "true", "t1": tag, "v1": value}
+        args = {"n": 1, "returnValue": "true"}
+        for i, (tag, value) in enumerate(to_write.items()):
+            args[f"t{i}"] = tag
+            args[f"v{i}"] = value
+
         response = requests.get(
             f"http://{self.hostname}/cgi/writeTags",
             params=args,
             cookies=self.auth_cookies,
             timeout=REQUEST_TIMEOUT,
         )
-        val_str = re.search(r"(?:^\d+\t)(\-?\d+)", response.text, re.MULTILINE).group(1)
-        return val_str
