@@ -11,6 +11,8 @@ tags = [
     EcotouchTags.FIRMWARE_VERSION,
     EcotouchTags.BUILD,
     EcotouchTags.HARDWARE_REVISION,
+    EcotouchTags.BIOS,
+    EcotouchTags.BIOS_DATE,
 ]
 
 while True:

@@ -3,7 +3,7 @@ library for communicating with waterkote ecotouch heatpumps
 """
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import struct
 from typing import Any, Callable, Collection, Dict, List, Tuple
 
@@ -121,6 +121,31 @@ class TagData:
         str_val = e_vals[self.tags[0]]
         return f"{str_val[:-4]:0>2}.{str_val[-4:-2]}.{str_val[-2:]}"
 
+    def _parse_bios(self, e_vals: Dict[Any, str], *_) -> str:
+        str_val = e_vals[self.tags[0]]
+        return f"{str_val[-4:-2]}.{str_val[-2:]}"
+
+    def _parse_bios_date(self, e_vals, *_):
+        int_date = int(e_vals[self.tags[0]])
+        bios_day = int(int_date / 1000)
+        bios_month = int((int_date % 1000) / 10)
+        bios_year = int_date % 10
+
+        if bios_month > 80:
+            bios_month -= 80
+            bios_year += 40
+        elif bios_month > 60:
+            bios_month -= 60
+            bios_year += 30
+        elif bios_month > 40:
+            bios_month -= 40
+            bios_year += 20
+        elif bios_month > 20:
+            bios_month -= 20
+            bios_year += 10
+
+        return date(bios_year + 2000, bios_month, bios_day)
+
     tags: Collection[str]
     unit: str = None
     writeable: bool = False
@@ -181,6 +206,8 @@ class EcotouchTags(TagData):
     FIRMWARE_VERSION = TagData(["I1"], read_function=TagData._parse_firmware)
     BUILD = TagData(["I2"])
     HARDWARE_REVISION = TagData(["I1718"])
+    BIOS = TagData(["I3"], read_function=TagData._parse_bios)
+    BIOS_DATE = TagData(["I4"], read_function=TagData._parse_bios_date)
 
 
 class Ecotouch:

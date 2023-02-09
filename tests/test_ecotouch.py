@@ -7,7 +7,7 @@ from pywaterkotte.ecotouch import (
 )
 import responses
 import pytest
-from datetime import datetime
+from datetime import datetime, date
 
 HOSTNAME = "hostname"
 
@@ -116,10 +116,22 @@ def test_read_date(wp_instance):
     assert datetime(2019, 3, 1, 18, 2) == result
 
 
+def test_parse_bios_date():
+    tag = EcotouchTags.BIOS_DATE
+    vals = {tag.tags[0]: "30309"}
+    assert tag.read_function(tag, vals) == date(2019, 10, 30)
+
+
 def test_parse_firmware():
     tag = EcotouchTags.FIRMWARE_VERSION
     vals = {tag.tags[0]: "10896"}
     assert TagData._parse_firmware(tag, vals) == "01.08.96"
+
+
+def test_parse_bios():
+    tag = EcotouchTags.BIOS
+    vals = {tag.tags[0]: "651"}
+    assert tag.read_function(tag, vals) == "6.51"
 
 
 @responses.activate
